@@ -32,21 +32,20 @@ The signaling system is at the crossroads of many needs:
 
 Static data:
 
-- must allow the front to represent the signals (choose an image)
-- must allow the editor to configure the signals
-- must allow the back to simulate the signals
-- must be close to the industry model
-- must allow for the modeling of composite signals, which represent several
-  logical signals in a single physical signal
+- must enable the front-end to display the signals
+- must enable the editor to configure signals
+- must enable the back-end to simulate signals
+- must be close to real-world industry models
+- must allow for the modeling of composite signals, which carry several
+  logical signals within a single physical signal
 
-For the simulation:
+To simulate signaling:
 
-- blocks must be generated for both the user and **pathfinding compatibility**
-- each signal must know the **next compatible signal**
-- each signal must know the **zones it protects**
+- blocks must be generated for both user convenience and **pathfinding**
+- for each signal, deduce its **next compatible signal** and **protected zones**
 - provide the **minimum necessary information** to the signaling modules for their operation
-- be able to use a signaling module without having to instantiate a complete simulation
-- be able to have modules that can be loaded in an independent order
+- enable using signaling modules without having to instantiate a complete simulation
+- the design of the signaling module API must allow for signals to be loaded in any order
 
 ```yaml
 {
@@ -77,7 +76,10 @@ For the simulation:
     # used to evaluate whether a signal is a block boundary.
     "block_boundary_when": "true",
 
-    # used for conflict detection. 
+    # used to evaluate whether a signal is a route boundary.
+    "route_boundary_when": "Nf",
+
+    # used for naive conflict detection. 
     "constraining_ma_when": "aspect != VL"
 }
 ```
@@ -87,9 +89,9 @@ For the simulation:
 - Each physical signal can be decomposed into a list of logical signals, all of which are associated with a signaling system.
 - Blocks have a type
 - It is possible to determine, given only the signal, its delimiting properties
-- There are no sidings overlapping the end or beginning of a track
-- Blocks not covered by tracks do not exist or can be ignored
-- A train only uses one signaling system capable of transmitting the movement authority
+- blocks never cross route boundaries
+- blocks which are not covered by routes do not exist, or can be ignored
+- At any time, trains only use one signaling system capable of transmitting movement authority
 
 # Design of Signaling Systems
 
@@ -99,115 +101,101 @@ Each signaling system has:
 - A set of roles:
     - Transmission of Movement Authority
     - Transmission of speed limits
-- Its signal state type, which must allow to:
-    - Know if it is constraining due to reduced MA
-    - Determine a graphical representation of the signal
-    - Make a train react to this signal
-- The signal parameters, used both in the front end to configure it and in the back end to determine the sidings information related to the signal
-- The sidings condition, which determines if a signal delimits a siding
+- Its signal state type, which enables deducing:
+    - The graphical representation of the signal
+    - How a train would react to the signal
+    - If the signal state constrains Movement Authority
+- The signal parameter types, names and description, which enable front-end edition of signal parameters
+- The block and route conditions, which enable evaluating whether a signal delimits blocks or routes, given its parameters.
 
 Note that if a signaling system has a dual role of transmitting MA and speed
 limits, not all signals in this system are necessarily tasked with transmitting
 speed limit information.
 
-# Design of the blocks
+# Design of blocks
 
 The blocks have several attributes:
 
 - a signaling system that corresponds to that displayed by its first signal.
-- a **path**, which represents the block protected zones, and their expected state (in the same format as the road path)
-- an **entry signal**, (optional when the block starts from a bumper)
-- any **intermediate signals** if necessary (this is used with systems with distant signals)
-- an **exit signal**, (optional when the block ends at a bumper)
+- a **path**, which is a list of direction + detector pairs (just like route paths)
+- an **entry signal**, (optional when the block starts from a buffer stop)
+- **intermediate signals**, if any (only used by systems with distant signals)
+- an **exit signal**, (optional when the block ends at a buffer stop)
 
-The path is expressed from detector to detector in order to be able to match it with the road graph.
+The path is expressed from detector to detector so that it can be overlayed with the route graph.
 
 A few remarks:
 
-- there may be several signaling systems superimposed on the same infrastructure. The model assumes that only one system at a time is active for train management
-- a block does not have a state: one can rely on the dynamic state of the zones that make it up
-- signals use blocks to know which zones are to be protected at a given time
+- there can be multiple blocks with the same path, as long as they have different signaling systems. Trains only use a block at a time, and ignore others.
+- blocks do not have a state: one can rely on the dynamic state of the zones that make it up
+- blocks are used to figure out which signals protect which zones in a given context
 
-# Design of the signals
+# Design of signals
 
-Each physical signal consists of one or more logical signals, whose aspects are
-combined to be represented on the field. During the simulation, logical signals
-are treated as separate signals.
+Physical signal are made up of one or more logical signals, which are displayed as a single unit on the field. During simulation, logical signals are treated as separate signals.
 
 Each logical signal is associated with a signaling system, which defines if the
-signal is transmitting Each logical signal can have a certain number of drivers.
+signal transmits Movement Authority, speed limits, or both.
 
-## Unloaded signal
+Logical signals have one or more drivers, which are used to compute signal state in a given context.
+When a logical signal has an empty driver list, its content is deduced from neighboring signals.
 
-An **unloaded signal** corresponds to the object capable of transmitting
-information to the train. Unloaded signals carry:
-
-- a signaling system
-- specific parameters for their signaling system (such as `Nf` and `has_ralen30` for bal)
-
-Unloaded signals are used to statically describe the infrastructure and are
-designed to be edited by the user.
-
-Depending on the context, different mechanisms can be the source of this
-information: they are called **drivers**. Each signal can carry several drivers.
 For example, a BAL signal that is both a departure of the TVM block and a
 departure of the BAL block will have two drivers: `bal-bal` and `bal-TVM`.
 
+## Raw signal format
+
+The raw signal format is the user-editable description of a physical signal.
+
+Raw signals have a list of logical signals, which are independently simulated units sharing
+a common physical display. Each logical signal has:
+
+- a signaling system
+- user-editable settings, as specified in the signaling system description
+- a list of allowed next signaling systems, which are used to load drivers
+
+For example, this signal encodes a BAL signal which starts both a BAL and a TVM block:
 ```yaml
 {
     # signals must have location data.
-    # this data is omited as its format is irrelevant to how signals behave
+    # this data is omitted as its format is irrelevant to how signals behave
 
     "logical_signals": [
         {
             # the signaling system shown by the signal
-            "signaling_system": "bal",
+            "signaling_system": "BAL",
             # the settings for this signal, as defined in the signaling system manifest
-            "settings": ["has_ralen30=true", "Nf=true"],
-            # all the ways the signal can be driven
-            # optional: if not present, we determine the drivers automatically
-            "drivers": [
-                # the signal can react to a following bal signal
-                {"next_signaling_system": "bal"},
-                # the signal can react to a following TVM signal
-                {"next_signaling_system": "TVM"}
-            ]
+            "settings": {"has_ralen30": "true", "Nf": "true"},
+            # this signal can react to BAL or TVM signals
+            # if the list is empty, the signal is assumed to be compatible with all following signaling systems
+            "next_signaling_systems": ["BAL", "TVM"]
         }
     ]
 }
 ```
 
+For example, this signal encodes a BAL signal which starts a BAL block, and shares its physical display / support with a BAPR signal starting a BAPR block:
 ```yaml
 {
     # signals must have location data.
-    # this data is omited as its format is irrelevant to how signals behave
+    # this data is omitted as its format is irrelevant to how signals behave
 
     "logical_signals": [
         {
-            # the signaling system shown by the signal
-            "signaling_system": "bal",
-            # the settings for this signal, as defined in the signaling system manifest
-            "settings": ["has_ralen30=true", "Nf=true"],
-            # all the ways the signal can be driven
-            "drivers": [
-                # the signal can react to a following bal signal
-                {"next_signaling_system": "bal"}
-            ]
+            "signaling_system": "BAL",
+            "settings": {"has_ralen30": "true", "Nf": "true"},
+            "next_signaling_systems": ["BAL"]
         },
         {
-            # the signaling system shown by the signal
-            "signaling_system": "bapr",
-            # all the ways the signal can be driven
-            "drivers": [
-                # the signal can react to a following bal signal
-                {"next_signaling_system": "bapr"}
-            ]
+            "signaling_system": "BAPR",
+            "settings": {"Nf": "true", "distant": "false"},
+            "next_signaling_systems": ["BAPR"]
         }
     ]
 }
 ```
 
-A simplified string description of the signal type can be generated. Here: `bal[Nf=true,ralen30=true]+bapr`.
+Such signal descriptions can be condensed down into a simplified description strings, for the specific use-case of representing / generating signal icons: `BAL[Nf=true,ralen30=true]+BAPR[Nf=true,distant=false]`
 
 ### Loading Signal Parameters
 
@@ -218,11 +206,11 @@ During the loading of the signal:
 
    - the signaling system corresponding to the provided name is identified
    - the signal parameters are loaded and validated according to the signaling system spec
-   - the signal's block role is evaluated from the expression
+   - the signal's block and route delimiting properties are evaluated
 
 ### Loading the Signal
 
-Once the signal parameters are loaded, it becomes possible to load its drivers. For each driver:
+Once signal parameters are loaded, drivers can be loaded. For each driver:
 
    - the driver implementation is identified from the `(signaling_system, next_signaling_system)` pair
    - it is verified that the signaling system outgoing from the driver corresponds to the one of the signal
@@ -322,7 +310,7 @@ Before a train startup:
 - the signal queue a train will encounter is established.
 
 During the simulation:
-- along a train movement, the track ocuppation before it are synthetized
+- along a train movement, the track occupation before it are synthesized
 - when a train observes a signal, its state is evaluated
 
 ### Signal state evaluation
@@ -372,23 +360,23 @@ fun signal(maView: MAView?, limitView: SpeedLimitView?): SignalState {
 ```
 
 The view should allow access to the following data:
- - a synthetized view of the zones downstream until the train MA
+ - a synthetized view of zones downstream until the end of the train's MA
  - the block chain
- - the state of the signals downstream present in the train's block chain
+ - the state of downstream signals which belong to the current block chain
 
-### Signalization view path
+### Signaling view path
 
-The path of the signalization view is expressed in blocks:
+The path along which the MAView and SpeedLimitView live is best expressed using blocks:
 
-- blocks can be added to extend the view
-- the view can be reduced by removing blocks
+- blocks can be added to extend the view along the path of a train
+- the view can be reduced by removing blocks, as the train passes by signals
 
 ### Simulation outside the train path
 
-It is possible to simulate the signalization outside the train path:
+It is possible to simulate signaling outside of any train path:
 
-   - if a signal gives way to blocks using different paths, it is simulated as if it were at the end of the itinerary and will therefore be at a standstill
-   - if a signal gives way to blocks using the same path, it is simulated with other signals in the sequence, in a view built for this purpose
+   - if a signal starts blocks which have differing paths, it is simulated as if it were at the end of a route
+   - if a signal starts blocks which all start the same path, it is simulated in the same view as the next signals in this path
 
 ## Dependencies
 
@@ -398,7 +386,7 @@ For the block graph generation:
        - `waypoints: List<DiDetector>`
        - `signals: OrderedMap<Position, UnloadedSignal>`
        - `speed_limits: RangeMap<Position, SpeedLimit>`, including the logic for train category limits
-   - signalization systems
+   - signaling systems
    - drivers
 
 For evaluation:
@@ -415,17 +403,17 @@ For evaluation:
    - **Observing a signal** subscribe to the state of a signal (through the view)
    - **Passing a signal** signals that a signal has been passed by the train (through the view)
 
-## Annexes
+## Appendices
 
 ### Research Questions
 
-   - Are there any blocks that overlap the end of a route? No (loic)
-   - Are there any LL(2) signals? No in France
-   - Are there signals that change behavior based on the active block in front of them? Yes, for slowdowns
-   - Are there signals that are the start of blocks of different types (bal and bapr for example)? YES LOL, even tvm
-   - Can the behavior of a signal depend on which block is active after the end of the current block? Yes, with slowdowns or blinking yellow
-   - Do some signaling systems need additional information in the blocks? Kind of, there are slowdowns, but it's not specifically carried by the block
-   - Is it nominal for a train to have multiple active signaling systems at the same time? No
+   - Are there any blocks that overlap the end of a route? SNCF(Loïc): No
+   - Are there any signals which rely on the state of the one after next signal? SNCF(Loïc): No
+   - Are there signals that change behavior based on the active block in front of them? SNCF(Loïc): Yes, for slowdowns
+   - Are there signals that are the start of blocks of different types? SNCF(Loïc): Yes
+   - Can the behavior of a signal depend on which block is active after the end of the current block? SNCF(Loïc): Yes, with slowdowns or blinking yellow
+   - Do some signaling systems need additional information in the blocks? SNCF(Loïc): Kind of, there are slowdowns, but it's not specifically carried by the block
+   - Is it nominal for a train to have multiple active signaling systems at the same time? SNCF(Loïc): No
    - When and by whom are the blocks generated?
    - What data is necessary for generating the blocks?
 
