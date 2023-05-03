@@ -33,18 +33,18 @@ The signaling system is at the crossroads of many needs:
 Static data:
 
 - must enable the front-end to display the signals
-- must enable the editor to configure signals
+- must enable the infrastructure editor to configure signals
 - must enable the back-end to simulate signals
-- must be close to real-world industry models
+- must be close to realistic industry models
 - must allow for the modeling of composite signals, which carry several
   logical signals within a single physical signal
 
 To simulate signaling:
 
 - blocks must be generated for both user convenience and **pathfinding**
-- for each signal, deduce its **next compatible signal** and **protected zones**
-- provide the **minimum necessary information** to the signaling modules for their operation
-- enable using signaling modules without having to instantiate a complete simulation
+- for each signal, its **next compatible signal** and **protected zones** must be deduced
+- the **minimum necessary information** must be provided to the signaling modules for their operation
+- using signaling modules without having to instantiate a complete simulation must be enabled
 - the design of the signaling module API must allow for signals to be loaded in any order
 
 ```yaml
@@ -87,28 +87,28 @@ To simulate signaling:
 ## Assumptions
 
 - Each physical signal can be decomposed into a list of logical signals, all of which are associated with a signaling system.
-- Blocks have a type
-- It is possible to determine, given only the signal, its delimiting properties
-- blocks never cross route boundaries
-- blocks which are not covered by routes do not exist, or can be ignored
-- At any time, trains only use one signaling system capable of transmitting movement authority
+- Blocks have a type.
+- It is possible to determine, given only the signal, its delimiting properties.
+- blocks never cross route boundaries.
+- blocks which are not covered by routes do not exist, or can be ignored.
+- At any time, trains only use one signaling system capable of transmitting movement authority.
 
 # Design of Signaling Systems
 
 Each signaling system has:
 
-- A unique identifier (a string)
+- A unique identifier (a string).
 - A set of roles:
-    - Transmission of Movement Authority
-    - Transmission of speed limits
+    - Transmission of Movement Authority;
+    - Transmission of speed limits.
 - Its signal state type, which enables deducing:
-    - The graphical representation of the signal
-    - How a train would react to the signal
-    - If the signal state constrains Movement Authority
-- The signal parameter types, names and description, which enable front-end edition of signal parameters
+    - The graphical representation of the signal;
+    - How a train would react to the signal;
+    - If the signal state constrains Movement Authority.
+- The signal parameter types, names and description, which enable front-end edition of signal parameters.
 - The block and route conditions, which enable evaluating whether a signal delimits blocks or routes, given its parameters.
 
-Note that if a signaling system has a dual role of transmitting MA and speed
+Note that if a signaling system has a dual role of transmitting Movement Authority (MA) and speed
 limits, not all signals in this system are necessarily tasked with transmitting
 speed limit information.
 
@@ -116,19 +116,19 @@ speed limit information.
 
 The blocks have several attributes:
 
-- a signaling system that corresponds to that displayed by its first signal.
-- a **path**, which is a list of direction + detector pairs (just like route paths)
-- an **entry signal**, (optional when the block starts from a buffer stop)
-- **intermediate signals**, if any (only used by systems with distant signals)
-- an **exit signal**, (optional when the block ends at a buffer stop)
+- A signaling system that corresponds to that displayed by its first signal.
+- A **path**, which is a list of direction + detector pairs (just like route paths).
+- An **entry signal**, (optional when the block starts from a buffer stop).
+- **Intermediate signals**, if any (only used by systems with distant signals).
+- An **exit signal**, (optional when the block ends at a buffer stop).
 
 The path is expressed from detector to detector so that it can be overlayed with the route graph.
 
 A few remarks:
 
-- there can be multiple blocks with the same path, as long as they have different signaling systems. Trains only use a block at a time, and ignore others.
-- blocks do not have a state: one can rely on the dynamic state of the zones that make it up
-- blocks are used to figure out which signals protect which zones in a given context
+- There can be multiple blocks with the same path, as long as they have different signaling systems. Trains only use a block at a time, and ignore others.
+- Blocks do not have a state: one can rely on the dynamic state of the zones that make it up.
+- Blocks are used to figure out which signals protect which zones in a given context.
 
 # Design of signals
 
@@ -195,7 +195,7 @@ For example, this signal encodes a BAL signal which starts a BAL block, and shar
 }
 ```
 
-Such signal descriptions can be condensed down into a simplified description strings, for the specific use-case of representing / generating signal icons: `BAL[Nf=true,ralen30=true]+BAPR[Nf=true,distant=false]`
+Such signal descriptions can be condensed down into a simplified description string, for the specific use-case of representing / generating signal icons: `BAL[Nf=true,ralen30=true]+BAPR[Nf=true,distant=false]`
 
 ### Loading Signal Parameters
 
@@ -212,9 +212,9 @@ During the loading of the signal:
 
 Once signal parameters are loaded, drivers can be loaded. For each driver:
 
-   - the driver implementation is identified from the `(signaling_system, next_signaling_system)` pair
-   - it is verified that the signaling system outgoing from the driver corresponds to the one of the signal
-   - it is verified that there is no existing driver for the incoming signaling system of the driver
+   - The driver implementation is identified from the `(signaling_system, next_signaling_system)` pair.
+   - It is verified that the signaling system outgoing from the driver corresponds to the one of the signal.
+   - It is verified that there is no existing driver for the incoming signaling system of the driver.
 
 This step produces a `Map<SignalingSystem, SignalDriver>`, where the signaling
 system is the one incoming to the signal.  It then becomes possible to construct
@@ -222,8 +222,8 @@ the loaded signal.
 
 ### Constructing Blocks
 
-   - the framework creates blocks between signals following the routes present in the infrastructure, and the block properties of the signals
-   - checks are made on the created block graph: it must always be possible to choose a block for each signal and each state of the infrastructure
+   - The framework creates blocks between signals following the routes present in the infrastructure, and the block properties of the signals.
+   - Checks are made on the created block graph: it must always be possible to choose a block for each signal and each state of the infrastructure.
 
 ### Speed Limits
 
@@ -232,9 +232,9 @@ They start their life as ranges on track sections, and are lifted to ranges on r
 
    - Directional speed limits by track are elevated to routes. The same speed limit can be on multiple routes.
    - For each speed limit, the route graph is traversed in reverse searching for signals capable of handling the limit:
-       - Only speed limits not preceded by another limit with identical properties are considered
+       - Only speed limits not preceded by another limit with identical properties are considered;
        - Each signal must signal its interest in a speed limit: Not concerned, Concerned but to be announced by another signal, or Concerned and terminal.
-   - for each speed limit planned along the train's path, the signals in the announcement chain are added to the list of those to be simulated for the train.
+   - For each speed limit planned along the train's path, the signals in the announcement chain are added to the list of those to be simulated for the train.
     
 ```rust
 enum SpeedLimitHandling {
@@ -266,15 +266,15 @@ fn handles_speed_limit_chain(
 
 The validation process helps to report invalid configurations in terms of signaling and blockage. The validation cases we want to support are:
 
-- the signaling system may want to validate, knowing if the block starts / ends on a buffer:
-    - the length of the block
-    - the spacing between the block signals, first signal excluded
-- each signal in the block may have specific information if it is a transition signal. Therefore, all signal drivers participate in the validation.
+- The signaling system may want to validate, knowing if the block starts / ends on a buffer:
+    - the length of the block;
+    - the spacing between the block signals, first signal excluded.
+- Each signal in the block may have specific information if it is a transition signal. Therefore, all signal drivers participate in the validation.
 
 In practice, there are two separate mechanisms to address these two needs:
 
-- the **signaling system module** is responsible for validating the signaling **within the block**
-- the **signal drivers**, takes care of validating the transitions between blocks
+- the **signaling system module** is responsible for validating the signaling **within the block**;
+- the **signal drivers**, takes care of validating the transitions between blocks.
 
 ```rust
 extern fn report_warning(/* TODO */);
@@ -306,12 +306,12 @@ fn check_signal(
 
 Before a train startup:
 
-- the path a of the train can be expressed as routes or as blocks. Those two paths should overlap.
-- the signal queue a train will encounter is established.
+- The path a of the train can be expressed as routes or as blocks. Those two paths should overlap.
+- The signal queue a train will encounter is established.
 
 During the simulation:
-- along a train movement, the track occupation before it are synthesized
-- when a train observes a signal, its state is evaluated
+- along a train movement, the track occupation before it are synthesized;
+- when a train observes a signal, its state is evaluated.
 
 ### Signal state evaluation
 
@@ -360,16 +360,16 @@ fun signal(maView: MAView?, limitView: SpeedLimitView?): SignalState {
 ```
 
 The view should allow access to the following data:
- - a synthetized view of zones downstream until the end of the train's MA
- - the block chain
- - the state of downstream signals which belong to the current block chain
+ - a synthetized view of zones downstream until the end of the train's MA;
+ - the block chain;
+ - the state of downstream signals which belong to the current block chain.
 
 ### Signaling view path
 
 The path along which the MAView and SpeedLimitView live is best expressed using blocks:
 
-- blocks can be added to extend the view along the path of a train
-- the view can be reduced by removing blocks, as the train passes by signals
+- Blocks can be added to extend the view along the path of a train;
+- The view can be reduced by removing blocks, as the train passes by signals.
 
 ### Simulation outside the train path
 
@@ -382,19 +382,19 @@ It is possible to simulate signaling outside of any train path:
 
 For the block graph generation:
 
-   - route graph. For each route:
+   - Route graph. For each route:
        - `waypoints: List<DiDetector>`
        - `signals: OrderedMap<Position, UnloadedSignal>`
        - `speed_limits: RangeMap<Position, SpeedLimit>`, including the logic for train category limits
-   - signaling systems
-   - drivers
+   - Signaling systems;
+   - Drivers.
 
 For evaluation:
 
-   - train path in blocks
-   - portion of the path to evaluate
-   - drivers
-   - state of the zones in the section to evaluate
+   - Train path in blocks;
+   - Portion of the path to evaluate;
+   - Drivers;
+   - State of the zones in the section to evaluate.
     
 ## Operations
 
@@ -407,13 +407,13 @@ For evaluation:
 
 ### Research Questions
 
-   - Are there any blocks that overlap the end of a route? SNCF(Loïc): No
-   - Are there any signals which rely on the state of the one after next signal? SNCF(Loïc): No
-   - Are there signals that change behavior based on the active block in front of them? SNCF(Loïc): Yes, for slowdowns
-   - Are there signals that are the start of blocks of different types? SNCF(Loïc): Yes
-   - Can the behavior of a signal depend on which block is active after the end of the current block? SNCF(Loïc): Yes, with slowdowns or blinking yellow
-   - Do some signaling systems need additional information in the blocks? SNCF(Loïc): Kind of, there are slowdowns, but it's not specifically carried by the block
-   - Is it nominal for a train to have multiple active signaling systems at the same time? SNCF(Loïc): No
+   - Are there any blocks that overlap the end of a route? SNCF(Loïc): No.
+   - Are there any signals which rely on the state of the one after next signal? SNCF(Loïc): No.
+   - Are there signals that change behavior based on the active block in front of them? SNCF(Loïc): Yes, for slowdowns.
+   - Are there signals that are the start of blocks of different types? SNCF(Loïc): Yes.
+   - Can the behavior of a signal depend on which block is active after the end of the current block? SNCF(Loïc): Yes, with slowdowns or blinking yellow.
+   - Do some signaling systems need additional information in the blocks? SNCF(Loïc): Kind of, there are slowdowns, but it's not specifically carried by the block.
+   - Is it nominal for a train to have multiple active signaling systems at the same time? SNCF(Loïc): No.
    - When and by whom are the blocks generated?
    - What data is necessary for generating the blocks?
 
